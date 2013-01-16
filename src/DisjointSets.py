@@ -25,10 +25,13 @@ class DisjointSets:
         add_set:
         add_sets:
         in_same_set:
-        snapshot:
+        merge_byelm:
+        #snapshot:
         update_cidx:
-        get_cidx:
-        get_clst:
+        #get_cidx:
+        #get_clst:
+        get_clsts:
+
 
     Description:
         elm: can be anything, such as strings or even objects
@@ -102,7 +105,7 @@ class DisjointSets:
 
         return idx_p
 
-    def __union__(self, idx1, idx2):
+    def __union__(self, idx1, idx2, criterion="small_index"):
         ''' Merge the clusters containing the two given elm indices 
         
             Note we do NOT update the mappings between cidx and ridx; need to call 
@@ -113,8 +116,12 @@ class DisjointSets:
         ridx1 = self.__find__(idx1); ridx2 = self.__find__(idx2)
         if ridx1 != ridx2:
             # merge ridx2 to ridx1
-            if self.__size_subsets[ridx1]<self.__size_subsets[ridx1]:
-                temp = ridx1; ridx1=ridx2; ridx2=temp
+            if criterion=="size":
+                if self.__size_subsets[ridx1]<self.__size_subsets[ridx1]:
+                    temp = ridx1; ridx1=ridx2; ridx2=temp
+            else:
+                if ridx2<ridx1:
+                    temp = ridx1; ridx1=ridx2; ridx2=temp
 
             self.__parent[ridx2] = ridx1
             self.__subsets[ridx1] = self.__subsets[ridx1]+self.__subsets[ridx2]
@@ -222,6 +229,11 @@ class DisjointSets:
 #        return dict([(self.__ridx2cidx[ridx],s) for ridx,s in self.__size_subsets.iteritems()])
         return dict([(ridx,s) for ridx,s in self.__size_subsets.iteritems()])
     
+    def get_clsts(self):
+        ''' Return all the clusters '''
+        
+        return self.__subsets    
+    
 #    def get_cur_cidxes(self):
 #        ''' Return the current clst indices (sorted by clst size)
 #        
@@ -243,11 +255,11 @@ class DisjointSets:
 #        self.__ridx2cidx = dict( (rindice_sorted[i][0],i) for i in xrange(self.n_subset))
 #        self.__cidx2ridx = [ks[0] for ks in rindice_sorted]
     
-    def snapshot(self):
-        ''' Return all the clusters in a list (sorted by size)'''
+#    def snapshot(self):
+#        ''' Return all the clusters in a list (sorted by size)'''
         
 #        if len(self.__ridx2cidx)>self.n_subset:
 #            self.update_label()
         
 #        return [self.__subsets[self.__cidx2ridx[i]] for i in xrange(self.n_subset)
-        return self.__subsets
+#        return self.__subsets
