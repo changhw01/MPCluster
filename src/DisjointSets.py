@@ -1,3 +1,5 @@
+import numpy as np
+
 class DisjointSets:
     ''' The famous disjoint set systems supporting UnionFind operation.
         The internal data structure is disjoint trees.
@@ -8,8 +10,6 @@ class DisjointSets:
         __parent: The __parent of the given node idx in the disjoint trees
         __subsets: The current snapshot of current partition of data
         __size_subsets: The size of this subset
-        #__cidx2ridx: Mapping of cluster index to tree root index
-        #__ridx2cidx: Mapping of tree root index to cluster index
         
         Public:
         n_subset: The current number of __subsets
@@ -26,10 +26,7 @@ class DisjointSets:
         add_sets:
         in_same_set:
         merge_byelm:
-        #snapshot:
         update_cidx:
-        #get_cidx:
-        #get_clst:
         get_clsts:
 
 
@@ -41,7 +38,7 @@ class DisjointSets:
     def __init__(self, S=None):
 
         # initialize by a list of elements
-        if isinstance(S,list):
+        if isinstance(S,list) or isinstance(S,np.ndarray):
             
             self.n_elm = len(S)
             self.n_subset = self.n_elm
@@ -50,8 +47,6 @@ class DisjointSets:
             self.__parent = range(self.n_elm)            
             self.__subsets = dict([(i, [S[i]]) for i in xrange(self.n_elm)])
             self.__size_subsets = dict([(i,1) for i in xrange(self.n_elm)])
-            #self.__cidx2ridx = range(self.n_elm)
-            #self.__ridx2cidx = dict([(i,i) for i in xrange(self.n_elm)])
 
         # initialize by the number of elements
         elif isinstance(S,int):
@@ -63,8 +58,6 @@ class DisjointSets:
             self.__parent = range(self.n_elm)
             self.__subsets = dict([(i,[i]) for i in xrange(self.n_elm)])
             self.__size_subsets = dict([(i,1) for i in xrange(self.n_elm)])
-            #self.__cidx2ridx = range(self.n_elm)
-            #self.__ridx2cidx = dict([(i,i) for i in xrange(self.n_elm)])
 
         # initialize by another DisjointSets
         elif isinstance(S,DisjointSets):
@@ -75,8 +68,6 @@ class DisjointSets:
             self.__parent = list(S.__parent)
             self.__subsets = dict(S.__subsets)
             self.__size_subsets = dict(S.__size_subsets)
-            #self.__cidx2ridx = list(S.__cidx2ridx)
-            #self.__ridx2cidx = dict(S.__ridx2cidx)
 
         # initialize as empty 
         else:
@@ -87,8 +78,6 @@ class DisjointSets:
             self.__parent = []
             self.__subsets = dict()
             self.__size_subsets = dict()
-            #self.__cidx2ridx = []
-            #self.__ridx2cidx = dict()
 
     def __find__(self, idx):
         ''' Return the root index of the given internal element index
@@ -106,13 +95,8 @@ class DisjointSets:
         return idx_p
 
     def __union__(self, idx1, idx2, criterion="small_index"):
-        ''' Merge the clusters containing the two given elm indices 
+        ''' Merge the clusters containing the two given elm indices '''
         
-            Note we do NOT update the mappings between cidx and ridx; need to call 
-            'update_label' to update. The reason is if we want to merge several clsts 
-            we need to fix the cidx. As a result, we must make sure we get the right ridx.
-            
-        '''
         ridx1 = self.__find__(idx1); ridx2 = self.__find__(idx2)
         if ridx1 != ridx2:
             # merge ridx2 to ridx1
@@ -129,17 +113,6 @@ class DisjointSets:
             self.__size_subsets[ridx1] = self.__size_subsets[ridx1]+self.__size_subsets[ridx2]
             del self.__size_subsets[ridx2]
             self.n_subset -= 1
-            
-            # should we update the ridx-cidx mapping?
-            
-#    def get_cidx(self, elm):
-#        idx = self.__elm2idx[elm]
-#        return self.__ridx2cidx[self.__find__(idx)]
-    
-#    def merge_bycidx(self, cidx1, cidx2):
-#        ridx1 = self.__find__(self.__cidx2ridx[cidx1])
-#        ridx2 = self.__find__(self.__cidx2ridx[cidx2])
-#        self.__union__(ridx1, ridx2)
         
     def merge_byelm(self, elm1, elm2):
         idx1 = self.__elm2idx[elm1] 
@@ -174,8 +147,6 @@ class DisjointSets:
         self.__subsets[ridx_newset] = S
         self.__size_subsets[ridx_newset] = size_newset
         self.__elm2idx.update([(S[i],self.n_elm+i) for i in xrange(size_newset)])
-#        self.__cidx2ridx.append(ridx_newset)
-#        self.__ridx2cidx[ridx_newset]=self.n_subset
 
         self.n_subset += 1
         self.n_elm += size_newset
@@ -208,13 +179,9 @@ class DisjointSets:
         self.__elm2idx.update(temp_dict)
         
         rv = range(self.n_elm,self.n_elm+len(S_list))
-#        cidx_next = self.n_elm
         for S in S_list:
             self.__subsets[temp_dict[S[0]]] = S
             self.__size_subsets[temp_dict[S[0]]] = len(S)
-#            self.__cidx2ridx.append(temp_dict[S[0]])
-#            self.__ridx2cidx[temp_dict[S[0]]] = cidx_next
-#            cidx_next += 1
 
         self.n_elm = len(self.__elm2idx)
         self.n_subset = len(self.__subsets)
@@ -222,44 +189,12 @@ class DisjointSets:
         return rv
     
     def in_same_set(self, elm1, elm2):
-#        return self.get_cidx(elm1)==self.get_cidx(elm2)
         return self.__find__(self.__elm2idx[elm1])==self.__find__(self.__elm2idx[elm2])
     
     def get_csizes(self):
-#        return dict([(self.__ridx2cidx[ridx],s) for ridx,s in self.__size_subsets.iteritems()])
         return dict([(ridx,s) for ridx,s in self.__size_subsets.iteritems()])
     
     def get_clsts(self):
         ''' Return all the clusters '''
         
-        return self.__subsets    
-    
-#    def get_cur_cidxes(self):
-#        ''' Return the current clst indices (sorted by clst size)
-#        
-#            This is mainly used when we merge some clsts but haven't update the labels.
-#            If the labels are up to date, then the result will be just range(self.n_subset)
-#        '''
-#        rindice_sorted = sorted(self.__size_subsets.iteritems(), key=lambda (k,v): (v,k))
-#        rindice_sorted.reverse()
-#        return [self.__ridx2cidx[ridx[0]] for ridx in rindice_sorted]
-    
-#    def get_clst(self, cidx):
-#        ridx = self.__find__(self.__cidx2ridx[cidx])
-#        return self.__subsets[ridx]
-    
-#    def update_label(self):
-#        rindice_sorted = sorted(self.__size_subsets.iteritems(), key=lambda (k,v): (v,k))
-#        rindice_sorted.reverse()
-#        
-#        self.__ridx2cidx = dict( (rindice_sorted[i][0],i) for i in xrange(self.n_subset))
-#        self.__cidx2ridx = [ks[0] for ks in rindice_sorted]
-    
-#    def snapshot(self):
-#        ''' Return all the clusters in a list (sorted by size)'''
-        
-#        if len(self.__ridx2cidx)>self.n_subset:
-#            self.update_label()
-        
-#        return [self.__subsets[self.__cidx2ridx[i]] for i in xrange(self.n_subset)
-#        return self.__subsets
+        return self.__subsets
