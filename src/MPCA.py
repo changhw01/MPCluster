@@ -1,5 +1,6 @@
 import numpy as np
 from DisjointSets import DisjointSets
+from PDiagram import PDiagram
 
 def search_first_true(flags):
     ''' Find the first index of True '''
@@ -16,20 +17,47 @@ def search_first_true(flags):
     else:
         return i
 
+
+def search_last_true(flags):
+    ''' Find the first index of True '''
+    
+    n_flag = len(flags)
+    i = n_flag-1
+    while i > -1:
+        if flags[i]:
+            break
+        i-=1
+    
+    if i == -1:
+        return None
+    else:
+        return i
+
+
 def adjust_rank(rep,r):
     ''' Adjust the ranks of the representation '''
-    n_clst, r_pre = rep.shape
+
+    dims = rep.shape    
+    if len(dims)>1:
+        n_clst = dims[0]
+        r_pre = dims[1]
+    else:
+        r_pre = dims[0]
+        n_clst = 1
     
     rep_new = None
     if r_pre == r:
         rep_new = rep
     elif r_pre > r:
-        rep_new = rep[:,0:r]
+        if n_clst>1:
+            rep_new = rep[:,0:r]
+        else:
+            rep_new = rep[0:r]
     else:
         rep_new = np.hstack(rep,np.zeros((n_clst,r-r_pre)))
         
     return rep_new
-        
+    
 class MPCA:
     ''' Perform multi-persistent clustering analysis from given distance matrix
         and density estimate.
@@ -82,8 +110,8 @@ class MPCA:
         # Set basic parameters 
         n_h = len(thres_dsty)
         n_r = len(thres_dist)
-        spM = np.zeros((n_h, n_r))
-        sM = np.zeros((n_h, n_r))
+        spM = np.zeros((n_h, n_r),dtype=np.int)
+        sM = np.zeros((n_h, n_r),dtype=np.int)
         subptts = []
         size_levelset = np.array([self.n_data] * n_h)
         rank_level = np.zeros(n_h)
@@ -107,8 +135,8 @@ class MPCA:
         size_ls_pre = 0
         iptt_next = 0
         
-        for ih in range(n_h - 1, -1, -1):
-            
+        for ih in range(n_h - 1, -1, -1):                        
+
             #---- if no new data appear ------------------------------------------ #
             if size_ls_pre == size_levelset[ih]:
                 spM[ih, :] = spM[ih + 1, :]
@@ -122,7 +150,7 @@ class MPCA:
             for ir in range(n_r):
                 print('ih=%d, ir=%d' % (ih, ir))
                 
-                if ir == 1:
+                if ir == 0:
                     # -- Compute new bases
                     ds = self.nbr_clustering(range(size_ls_cur), thres_dist[ir])
                     sM[ih, ir] = ds.n_subset
@@ -208,7 +236,85 @@ class MPCA:
         self.size_levelset = size_levelset
         
         return self
-    
+
+    def get_pdiagram(self, c_idx):
+        ''' Given the index of the initial data point, get its persistence diagram '''
+
+
+        # first make sure the cluster has non-empty persistence diagram
+        if self.blife[c_idx]==0:
+            return None
+
+        ih_start = search_last_true(~(self.size_levelset<=c_idx))
+
+        cM = -1*np.ones((self.n_h,self.n_r),dtype=np.int)
+        sM = np.zeros((self.n_h,self.n_r),dtype=np.int)
+
+
+        if ih_start > self.n_h:
+            print('Invalid input')
+            return None
+
+        # Start check it from the lowest level
+        i_next = 0
+        rep_clst = []
+        ir_lbound = 0
+        ir_rbound = self.n_r-1
+
+        for ih in range(ih_start,-1,-1):
+
+            # get the info of this level
+            rank_cur = self.rank_level[ih]
+
+            # move toward right
+            for ir in range(ir_lbound,ir_rbound+1):
+                # find the clst containing the tgt basis
+                sptt = self.subptts[self.spM[ih,ir]]
+                idx_clst = search_first_true(sptt[:,c_idx])
+
+                fbasis_cur_clst = search_first_true(sptt[idx_clst,:rank_cur])
+                if fbasis_cur_clst < c_idx:  # get merged
+                    break
+
+                # we know it is not merged bu other clusters
+                rep_tgt = sptt[idx_clst,:rank_cur]
+                sM[ih,ir] = np.sum(rep_tgt)
+
+                if ir>1 and sM[ih,ir]==sM[ih,ir-1]:
+                    cM[ih,ir]=cM[ih,ir-1]
+                else:
+                    flag_new = True
+
+                    # check below to see whether the clst has been found before
+                    for ih_l in range(ih+1,self.n_h):
+                        idx_r_test = search_first_true(sM[ih_l,:]==sM[ih,ir])
+                        if idx_r_test is None:
+                            continue
+
+                        rep_v_tgt = adjust_rank(rep_tgt,self.rank_level[ih_l])
+                        rep_v_test = adjust_rank(rep_clst[cM[ih_l,idx_r_test]], self.rank_level[ih_l])
+                        if not np.logical_xor(rep_v_tgt,rep_v_test).any():
+                            flag_new = False
+                            cM[ih,ir] = cM[ih_l,idx_r_test]
+                            rep_clst[cM[ih,ir]] = rep_tgt   # need to update to get the right rank
+                            break
+
+                    if flag_new:
+                        #rep_clst = np.hstack([rep_clst,rep_tgt])
+                        rep_clst.append(rep_tgt)
+                        cM[ih,ir] = i_next
+                        i_next += 1
+
+            # end of ir loop
+            ir_lbound = search_first_true(sM[ih,:])
+            ir_rbound = search_last_true(sM[ih,:])
+
+        # end of ih loop
+
+        return PDiagram(cM,sM,rep_clst)
+        
+
+
     def nbr_clustering(self, I, r):
         ''' Epsilon ball clustering 
         
