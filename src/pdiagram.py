@@ -21,7 +21,7 @@ class PDiagram:
 
         self.n_h, self.n_r = cM.shape
 
-    def show(self,ax=None):
+    def show(self,ax=None, max_size=None):
         ''' Draw the persistence diagram 
         
             ax: the axis object 
@@ -49,7 +49,10 @@ class PDiagram:
 
 
         # for color
-        colorM = self.sM/ float(np.max(self.sM))
+        if max_size is None:
+            colorM = self.sM/float(np.max(self.sM))
+        else:
+            colorM = self.sM/float(max_size)
 
         # one rectangle for each clustering 
         for i in range(self.n_h):
@@ -97,8 +100,9 @@ class PDiagram:
                     rect.set_linewidth(0)
                     ax.add_artist(rect)
 
-        ax.autoscale_view()
+        #ax.autoscale_view()
         #ax.figure.canvas.draw()
-        plt.axis([0, self.n_r+1, 0, self.n_h+1])
-        fig.show()
-        return ax
+        #ax.axis([0, self.n_r+2, 0, self.n_h+2])
+        #plt.grid(True)
+        #fig.show()
+        return fig, ax
